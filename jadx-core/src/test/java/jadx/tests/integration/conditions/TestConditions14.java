@@ -1,15 +1,14 @@
 package jadx.tests.integration.conditions;
 
-import jadx.core.dex.nodes.ClassNode;
+import org.junit.jupiter.api.Test;
+
 import jadx.tests.api.IntegrationTest;
 
-import org.junit.Test;
-
-import static jadx.tests.api.utils.JadxMatchers.containsOne;
-import static org.junit.Assert.assertThat;
+import static jadx.tests.api.utils.assertj.JadxAssertions.assertThat;
 
 public class TestConditions14 extends IntegrationTest {
 
+	@SuppressWarnings({ "EqualsReplaceableByObjectsCall", "ConstantConditions" })
 	public static class TestCls {
 
 		public static boolean test(Object a, Object b) {
@@ -17,19 +16,23 @@ public class TestConditions14 extends IntegrationTest {
 			if (r) {
 				return false;
 			}
-			System.out.println("1");
+			System.out.println("r=" + r);
 			return true;
 		}
 	}
 
 	@Test
 	public void test() {
-		ClassNode cls = getClassNode(TestCls.class);
-		String code = cls.getCode().toString();
-
-		assertThat(code, containsOne("boolean r = a == null ? b != null : !a.equals(b);"));
-		assertThat(code, containsOne("if (r) {"));
-		assertThat(code, containsOne("System.out.println(\"1\");"));
-
+		assertThat(getClassNode(TestCls.class))
+				.code()
+				.containsLines(2,
+						"boolean r;",
+						"if (a == null) {",
+						indent() + "r = b != null;",
+						"} else {",
+						indent() + "r = !a.equals(b);",
+						"}")
+				.containsOne("if (r) {")
+				.containsOne("System.out.println(\"r=\" + r);");
 	}
 }

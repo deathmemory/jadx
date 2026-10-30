@@ -1,15 +1,22 @@
 package jadx.core.dex.info;
 
-import jadx.core.dex.instructions.args.ArgType;
-
 import java.util.HashMap;
 import java.util.Map;
 
+import org.jetbrains.annotations.Nullable;
+
+import jadx.core.dex.instructions.args.ArgType;
+
 public class InfoStorage {
 
-	private final Map<ArgType, ClassInfo> classes = new HashMap<ArgType, ClassInfo>();
-	private final Map<Integer, MethodInfo> methods = new HashMap<Integer, MethodInfo>();
-	private final Map<FieldInfo, FieldInfo> fields = new HashMap<FieldInfo, FieldInfo>();
+	private final Map<ArgType, ClassInfo> classes = new HashMap<>();
+	private final Map<FieldInfo, FieldInfo> fields = new HashMap<>();
+	// use only one MethodInfo instance
+	private final Map<MethodInfo, MethodInfo> uniqueMethods = new HashMap<>();
+	// can contain same method with different ids (from different files)
+	private final Map<Integer, MethodInfo> methods = new HashMap<>();
+
+	private final Map<String, PackageInfo> packages = new HashMap<>();
 
 	public ClassInfo getCls(ArgType type) {
 		return classes.get(type);
@@ -22,14 +29,26 @@ public class InfoStorage {
 		}
 	}
 
-	public MethodInfo getMethod(int mtdId) {
-		return methods.get(mtdId);
+	public MethodInfo getByUniqId(int id) {
+		synchronized (methods) {
+			return methods.get(id);
+		}
 	}
 
-	public MethodInfo putMethod(int mthId, MethodInfo mth) {
+	public void putByUniqId(int id, MethodInfo mth) {
 		synchronized (methods) {
-			MethodInfo prev = methods.put(mthId, mth);
-			return prev == null ? mth : prev;
+			methods.put(id, mth);
+		}
+	}
+
+	public MethodInfo putMethod(MethodInfo newMth) {
+		synchronized (uniqueMethods) {
+			MethodInfo prev = uniqueMethods.get(newMth);
+			if (prev != null) {
+				return prev;
+			}
+			uniqueMethods.put(newMth, newMth);
+			return newMth;
 		}
 	}
 
@@ -42,5 +61,13 @@ public class InfoStorage {
 			fields.put(field, field);
 			return field;
 		}
+	}
+
+	public @Nullable PackageInfo getPkg(String fullName) {
+		return packages.get(fullName);
+	}
+
+	public void putPkg(PackageInfo pkg) {
+		packages.put(pkg.getFullName(), pkg);
 	}
 }

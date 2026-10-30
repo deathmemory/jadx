@@ -1,50 +1,99 @@
 package jadx.core.dex.nodes;
 
+import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.List;
+
+import org.jetbrains.annotations.NotNull;
+
 import jadx.core.dex.attributes.AFlag;
 import jadx.core.dex.attributes.AType;
 import jadx.core.dex.attributes.AttrNode;
-import jadx.core.dex.attributes.nodes.IgnoreEdgeAttr;
 import jadx.core.dex.attributes.nodes.LoopInfo;
 import jadx.core.utils.BlockUtils;
 import jadx.core.utils.EmptyBitSet;
 import jadx.core.utils.InsnUtils;
+import jadx.core.utils.exceptions.JadxRuntimeException;
 
-import java.util.ArrayList;
-import java.util.BitSet;
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
+import static jadx.core.utils.Utils.lockList;
 
-public class BlockNode extends AttrNode implements IBlock {
+public final class BlockNode extends AttrNode implements IBlock, Comparable<BlockNode> {
 
-	private int id;
+	/**
+	 * Const ID
+	 */
+	private final int cid;
+
+	/**
+	 * Position in blocks list (easier to use BitSet)
+	 */
+	private int pos;
+
+	/**
+	 * Offset in methods bytecode
+	 */
 	private final int startOffset;
-	private final List<InsnNode> instructions = new ArrayList<InsnNode>(2);
 
-	private List<BlockNode> predecessors = new ArrayList<BlockNode>(1);
-	private List<BlockNode> successors = new ArrayList<BlockNode>(1);
+	private final List<InsnNode> instructions = new ArrayList<>(2);
+
+	private List<BlockNode> predecessors = new ArrayList<>(1);
+	private List<BlockNode> successors = new ArrayList<>(1);
 	private List<BlockNode> cleanSuccessors;
 
-	// all dominators
+	/**
+	 * All dominators, excluding self
+	 */
 	private BitSet doms = EmptyBitSet.EMPTY;
-	// dominance frontier
-	private BitSet domFrontier;
-	// immediate dominator
-	private BlockNode idom;
-	// blocks on which dominates this block
-	private List<BlockNode> dominatesOn = Collections.emptyList();
 
-	public BlockNode(int id, int offset) {
-		this.id = id;
+	/**
+	 * Post dominators, excluding self
+	 */
+	private BitSet postDoms = EmptyBitSet.EMPTY;
+
+	/**
+	 * Dominance frontier
+	 */
+	private BitSet domFrontier;
+
+	/**
+	 * Immediate dominator
+	 */
+	private BlockNode idom;
+
+	/**
+	 * Immediate post dominator
+	 */
+	private BlockNode iPostDom;
+
+	/**
+	 * Blocks on which dominates this block
+	 */
+	private List<BlockNode> dominatesOn = new ArrayList<>(3);
+
+	public BlockNode(int cid, int pos, int offset) {
+		this.cid = cid;
+		this.pos = pos;
 		this.startOffset = offset;
 	}
 
-	public void setId(int id) {
-		this.id = id;
+	public int getCId() {
+		return cid;
 	}
 
+	void setPos(int id) {
+		this.pos = id;
+	}
+
+	/**
+	 * Deprecated. Use {@link #getPos()}.
+	 */
+	@Deprecated
 	public int getId() {
-		return id;
+		return pos;
+	}
+
+	public int getPos() {
+		return pos;
 	}
 
 	public List<BlockNode> getPredecessors() {
@@ -56,25 +105,33 @@ public class BlockNode extends AttrNode implements IBlock {
 	}
 
 	public List<BlockNode> getCleanSuccessors() {
-		return cleanSuccessors;
+		return this.cleanSuccessors;
 	}
 
 	public void updateCleanSuccessors() {
 		cleanSuccessors = cleanSuccessors(this);
 	}
 
-	public void lock() {
-		cleanSuccessors = lockList(cleanSuccessors);
-		successors = lockList(successors);
-		predecessors = lockList(predecessors);
-		dominatesOn = lockList(dominatesOn);
+	public static void updateBlockPositions(List<BlockNode> blocks) {
+		int count = blocks.size();
+		for (int i = 0; i < count; i++) {
+			blocks.get(i).setPos(i);
+		}
 	}
 
-	List<BlockNode> lockList(List<BlockNode> list) {
-		if (list.isEmpty()) {
-			return Collections.emptyList();
+	public void lock() {
+		try {
+			List<BlockNode> successorsList = successors;
+			successors = lockList(successorsList);
+			cleanSuccessors = successorsList == cleanSuccessors ? this.successors : lockList(cleanSuccessors);
+			predecessors = lockList(predecessors);
+			dominatesOn = lockList(dominatesOn);
+			if (domFrontier == null) {
+				throw new JadxRuntimeException("Dominance frontier not set for block: " + this);
+			}
+		} catch (Exception e) {
+			throw new JadxRuntimeException("Failed to lock block: " + this, e);
 		}
-		return Collections.unmodifiableList(list);
 	}
 
 	/**
@@ -85,9 +142,9 @@ public class BlockNode extends AttrNode implements IBlock {
 		if (sucList.isEmpty()) {
 			return sucList;
 		}
-		List<BlockNode> toRemove = new LinkedList<BlockNode>();
+		List<BlockNode> toRemove = new ArrayList<>(sucList.size());
 		for (BlockNode b : sucList) {
-			if (BlockUtils.isBlockMustBeCleared(b)) {
+			if (BlockUtils.isExceptionHandlerPath(b)) {
 				toRemove.add(b);
 			}
 		}
@@ -97,14 +154,10 @@ public class BlockNode extends AttrNode implements IBlock {
 				toRemove.add(loop.getStart());
 			}
 		}
-		IgnoreEdgeAttr ignoreEdgeAttr = block.get(AType.IGNORE_EDGE);
-		if (ignoreEdgeAttr != null) {
-			toRemove.addAll(ignoreEdgeAttr.getBlocks());
-		}
 		if (toRemove.isEmpty()) {
 			return sucList;
 		}
-		List<BlockNode> result = new ArrayList<BlockNode>(sucList);
+		List<BlockNode> result = new ArrayList<>(sucList);
 		result.removeAll(toRemove);
 		return result;
 	}
@@ -122,7 +175,7 @@ public class BlockNode extends AttrNode implements IBlock {
 	 * Check if 'block' dominated on this node
 	 */
 	public boolean isDominator(BlockNode block) {
-		return doms.get(block.getId());
+		return doms.get(block.getPos());
 	}
 
 	/**
@@ -134,6 +187,14 @@ public class BlockNode extends AttrNode implements IBlock {
 
 	public void setDoms(BitSet doms) {
 		this.doms = doms;
+	}
+
+	public BitSet getPostDoms() {
+		return postDoms;
+	}
+
+	public void setPostDoms(BitSet postDoms) {
+		this.postDoms = postDoms;
 	}
 
 	public BitSet getDomFrontier() {
@@ -155,14 +216,19 @@ public class BlockNode extends AttrNode implements IBlock {
 		this.idom = idom;
 	}
 
+	public BlockNode getIPostDom() {
+		return iPostDom;
+	}
+
+	public void setIPostDom(BlockNode iPostDom) {
+		this.iPostDom = iPostDom;
+	}
+
 	public List<BlockNode> getDominatesOn() {
 		return dominatesOn;
 	}
 
 	public void addDominatesOn(BlockNode block) {
-		if (dominatesOn.isEmpty()) {
-			dominatesOn = new LinkedList<BlockNode>();
-		}
 		dominatesOn.add(block);
 	}
 
@@ -174,9 +240,17 @@ public class BlockNode extends AttrNode implements IBlock {
 		return contains(AFlag.RETURN);
 	}
 
+	public boolean isMthExitBlock() {
+		return contains(AFlag.MTH_EXIT_BLOCK);
+	}
+
+	public boolean isEmpty() {
+		return instructions.isEmpty();
+	}
+
 	@Override
 	public int hashCode() {
-		return startOffset;
+		return cid;
 	}
 
 	@Override
@@ -188,16 +262,21 @@ public class BlockNode extends AttrNode implements IBlock {
 			return false;
 		}
 		BlockNode other = (BlockNode) obj;
-		return id == other.id && startOffset == other.startOffset;
+		return cid == other.cid;
+	}
+
+	@Override
+	public int compareTo(@NotNull BlockNode o) {
+		return Integer.compare(cid, o.cid);
 	}
 
 	@Override
 	public String baseString() {
-		return Integer.toString(id);
+		return Integer.toString(cid);
 	}
 
 	@Override
 	public String toString() {
-		return "B:" + id + ":" + InsnUtils.formatOffset(startOffset);
+		return "B:" + cid + ':' + InsnUtils.formatOffset(startOffset);
 	}
 }

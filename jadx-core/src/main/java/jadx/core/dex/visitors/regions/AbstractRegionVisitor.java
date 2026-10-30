@@ -12,11 +12,10 @@ public abstract class AbstractRegionVisitor implements IRegionVisitor {
 	}
 
 	@Override
-	public void processBlock(MethodNode mth, IBlock container) {
+	public void processBlock(MethodNode mth, IBlock block) {
 	}
 
 	@Override
 	public void leaveRegion(MethodNode mth, IRegion region) {
 	}
-
 }

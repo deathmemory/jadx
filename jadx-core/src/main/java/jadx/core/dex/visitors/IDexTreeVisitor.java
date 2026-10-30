@@ -11,6 +11,11 @@ import jadx.core.utils.exceptions.JadxException;
 public interface IDexTreeVisitor {
 
 	/**
+	 * Visitor short id
+	 */
+	String getName();
+
+	/**
 	 * Called after loading dex tree, but before visitor traversal.
 	 */
 	void init(RootNode root) throws JadxException;
@@ -19,14 +24,11 @@ public interface IDexTreeVisitor {
 	 * Visit class
 	 *
 	 * @return false for disable child methods and inner classes traversal
-	 * @throws JadxException
 	 */
 	boolean visit(ClassNode cls) throws JadxException;
 
 	/**
 	 * Visit method
-	 *
-	 * @throws JadxException
 	 */
 	void visit(MethodNode mth) throws JadxException;
 }

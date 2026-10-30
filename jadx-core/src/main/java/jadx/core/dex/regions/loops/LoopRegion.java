@@ -1,54 +1,57 @@
 package jadx.core.dex.regions.loops;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.jetbrains.annotations.Nullable;
+
+import jadx.api.ICodeWriter;
+import jadx.core.codegen.RegionGen;
+import jadx.core.dex.attributes.AFlag;
 import jadx.core.dex.attributes.nodes.LoopInfo;
-import jadx.core.dex.instructions.IfNode;
 import jadx.core.dex.instructions.args.RegisterArg;
 import jadx.core.dex.nodes.BlockNode;
 import jadx.core.dex.nodes.IContainer;
 import jadx.core.dex.nodes.IRegion;
 import jadx.core.dex.nodes.InsnNode;
-import jadx.core.dex.regions.AbstractRegion;
+import jadx.core.dex.regions.conditions.ConditionRegion;
 import jadx.core.dex.regions.conditions.IfCondition;
+import jadx.core.utils.BlockUtils;
+import jadx.core.utils.InsnUtils;
+import jadx.core.utils.exceptions.CodegenException;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
-public final class LoopRegion extends AbstractRegion {
+public final class LoopRegion extends ConditionRegion {
 
 	private final LoopInfo info;
-	// loop header contains one 'if' insn, equals null for infinite loop
-	private IfCondition condition;
-	private final BlockNode conditionBlock;
-	// instruction which must be executed before condition in every loop
-	private BlockNode preCondition;
-	private IRegion body;
 	private final boolean conditionAtEnd;
+	private final @Nullable BlockNode header;
+	// instruction which must be executed before condition in every loop
+	private @Nullable BlockNode preCondition;
 
+	private IRegion body;
 	private LoopType type;
 
-	public LoopRegion(IRegion parent, LoopInfo info, BlockNode header, boolean reversed) {
+	public LoopRegion(IRegion parent, LoopInfo info, @Nullable BlockNode header, boolean reversed) {
 		super(parent);
 		this.info = info;
-		this.conditionBlock = header;
-		this.condition = IfCondition.fromIfBlock(header);
+		this.header = header;
 		this.conditionAtEnd = reversed;
+		if (header != null) {
+			updateCondition(header);
+		}
 	}
 
 	public LoopInfo getInfo() {
 		return info;
 	}
 
-	public IfCondition getCondition() {
-		return condition;
-	}
-
-	public void setCondition(IfCondition condition) {
-		this.condition = condition;
-	}
-
+	@Nullable
 	public BlockNode getHeader() {
-		return conditionBlock;
+		return header;
+	}
+
+	public boolean isEndless() {
+		return header == null;
 	}
 
 	public IRegion getBody() {
@@ -70,10 +73,6 @@ public final class LoopRegion extends AbstractRegion {
 		this.preCondition = preCondition;
 	}
 
-	private IfNode getIfInsn() {
-		return (IfNode) conditionBlock.getInstructions().get(0);
-	}
-
 	/**
 	 * Check if pre-conditions can be inlined into loop condition
 	 */
@@ -82,7 +81,14 @@ public final class LoopRegion extends AbstractRegion {
 		if (insns.isEmpty()) {
 			return true;
 		}
-		IfNode ifInsn = getIfInsn();
+		IfCondition condition = getCondition();
+		if (condition == null) {
+			return false;
+		}
+		List<RegisterArg> conditionArgs = condition.getRegisterArgs();
+		if (conditionArgs.isEmpty()) {
+			return false;
+		}
 		int size = insns.size();
 		for (int i = 0; i < size; i++) {
 			InsnNode insn = insns.get(i);
@@ -96,12 +102,12 @@ public final class LoopRegion extends AbstractRegion {
 			boolean found = false;
 			// search result arg in other insns
 			for (int j = i + 1; j < size; j++) {
-				if (insns.get(i).containsArg(res)) {
+				if (insns.get(i).containsVar(res)) {
 					found = true;
 				}
 			}
 			// or in if insn
-			if (!found && ifInsn.containsArg(res)) {
+			if (!found && InsnUtils.containsVar(conditionArgs, res)) {
 				found = true;
 			}
 			if (!found) {
@@ -115,15 +121,25 @@ public final class LoopRegion extends AbstractRegion {
 	 * Move all preCondition block instructions before conditionBlock instructions
 	 */
 	public void mergePreCondition() {
-		if (preCondition != null && conditionBlock != null) {
-			List<InsnNode> condInsns = conditionBlock.getInstructions();
+		if (preCondition != null && header != null) {
+			List<InsnNode> condInsns = header.getInstructions();
 			List<InsnNode> preCondInsns = preCondition.getInstructions();
 			preCondInsns.addAll(condInsns);
 			condInsns.clear();
 			condInsns.addAll(preCondInsns);
+			header.add(AFlag.ALLOW_MULTIPLE_INSNS_LOOP_COND);
 			preCondInsns.clear();
 			preCondition = null;
 		}
+	}
+
+	public int getSourceLine() {
+		InsnNode lastInsn = BlockUtils.getLastInsn(header);
+		int headerLine = lastInsn == null ? 0 : lastInsn.getSourceLine();
+		if (headerLine != 0) {
+			return headerLine;
+		}
+		return getConditionSourceLine();
 	}
 
 	public LoopType getType() {
@@ -136,22 +152,25 @@ public final class LoopRegion extends AbstractRegion {
 
 	@Override
 	public List<IContainer> getSubBlocks() {
-		List<IContainer> all = new ArrayList<IContainer>(3);
+		List<IContainer> all = new ArrayList<>(2 + getConditionBlocks().size());
 		if (preCondition != null) {
 			all.add(preCondition);
 		}
-		if (conditionBlock != null) {
-			all.add(conditionBlock);
-		}
+		all.addAll(getConditionBlocks());
 		if (body != null) {
 			all.add(body);
 		}
-		return Collections.unmodifiableList(all);
+		return all;
 	}
 
 	@Override
 	public boolean replaceSubBlock(IContainer oldBlock, IContainer newBlock) {
 		return false;
+	}
+
+	@Override
+	public void generate(RegionGen regionGen, ICodeWriter code) throws CodegenException {
+		regionGen.makeLoop(this, code);
 	}
 
 	@Override

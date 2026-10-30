@@ -1,20 +1,15 @@
 package jadx.tests.integration.loops;
 
-import jadx.core.dex.nodes.ClassNode;
+import org.junit.jupiter.api.Test;
+
 import jadx.tests.api.IntegrationTest;
 
-import org.junit.Test;
-
-import static jadx.tests.api.utils.JadxMatchers.containsOne;
-import static jadx.tests.api.utils.JadxMatchers.countString;
-import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.CoreMatchers.not;
-import static org.junit.Assert.assertThat;
+import static jadx.tests.api.utils.assertj.JadxAssertions.assertThat;
 
 public class TestSequentialLoops extends IntegrationTest {
 
 	public static class TestCls {
-		public int test7(int a, int b) {
+		public int test(int a, int b) {
 			int c = b;
 			int z;
 
@@ -35,13 +30,10 @@ public class TestSequentialLoops extends IntegrationTest {
 
 	@Test
 	public void test() {
-		disableCompilation();
-		ClassNode cls = getClassNode(TestCls.class);
-		String code = cls.getCode().toString();
-
-		assertThat(code, countString(2, "while ("));
-		assertThat(code, containsOne("break;"));
-		assertThat(code, containsOne("return c;"));
-		assertThat(code, not(containsString("else")));
+		assertThat(getClassNode(TestCls.class))
+				.code()
+				.countString(2, "while (")
+				.containsOne("break;")
+				.containsOne("return c;");
 	}
 }

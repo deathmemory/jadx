@@ -1,9 +1,9 @@
 package jadx.core.dex.instructions;
 
+import org.jetbrains.annotations.NotNull;
+
 import jadx.core.dex.instructions.args.ArgType;
 import jadx.core.dex.nodes.InsnNode;
-
-import org.jetbrains.annotations.NotNull;
 
 public class FilledNewArrayNode extends InsnNode {
 
@@ -32,6 +32,11 @@ public class FilledNewArrayNode extends InsnNode {
 		}
 		FilledNewArrayNode other = (FilledNewArrayNode) obj;
 		return elemType == other.elemType;
+	}
+
+	@Override
+	public InsnNode copy() {
+		return copyCommonParams(new FilledNewArrayNode(elemType, getArgsCount()));
 	}
 
 	@Override

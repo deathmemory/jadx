@@ -1,17 +1,27 @@
 package jadx.core.dex.attributes;
 
-import jadx.core.utils.Utils;
-
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
 
-public class AttrList<T> implements IAttribute {
+import jadx.api.plugins.input.data.attributes.IJadxAttrType;
+import jadx.api.plugins.input.data.attributes.IJadxAttribute;
+import jadx.core.utils.Utils;
 
-	private final AType<AttrList<T>> type;
-	private final List<T> list = new LinkedList<T>();
+public class AttrList<T> implements IJadxAttribute {
 
-	public AttrList(AType<AttrList<T>> type) {
+	private static final int MAX_ATTRLIST_LENGTH = 300;
+
+	private final IJadxAttrType<AttrList<T>> type;
+	private final List<T> list;
+
+	public AttrList(IJadxAttrType<AttrList<T>> type, List<T> attrList) {
 		this.type = type;
+		this.list = attrList;
+	}
+
+	public AttrList(IJadxAttrType<AttrList<T>> type) {
+		this.type = type;
+		this.list = new ArrayList<>();
 	}
 
 	public List<T> getList() {
@@ -19,12 +29,17 @@ public class AttrList<T> implements IAttribute {
 	}
 
 	@Override
-	public AType<AttrList<T>> getType() {
+	public IJadxAttrType<AttrList<T>> getAttrType() {
 		return type;
 	}
 
 	@Override
 	public String toString() {
-		return Utils.listToString(list);
+		String commaDelimited = Utils.listToString(list, ", ");
+		// if the comma delimited list is too long, use newlines instead to maintain readability
+		if (commaDelimited.length() > MAX_ATTRLIST_LENGTH) {
+			return Utils.listToString(list, "\n    ");
+		}
+		return commaDelimited;
 	}
 }

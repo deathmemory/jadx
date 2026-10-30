@@ -1,22 +1,19 @@
 package jadx.gui.utils;
 
-import javax.swing.AbstractAction;
-import javax.swing.Action;
-import javax.swing.JPopupMenu;
-import javax.swing.KeyStroke;
-import javax.swing.event.UndoableEditEvent;
-import javax.swing.event.UndoableEditListener;
-import javax.swing.text.JTextComponent;
-import javax.swing.undo.UndoManager;
 import java.awt.Toolkit;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.event.ActionEvent;
-import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 
-@SuppressWarnings("serial")
+import javax.swing.AbstractAction;
+import javax.swing.Action;
+import javax.swing.JPopupMenu;
+import javax.swing.KeyStroke;
+import javax.swing.text.JTextComponent;
+import javax.swing.undo.UndoManager;
+
 public class TextStandardActions {
 
 	private final JTextComponent textComponent;
@@ -31,6 +28,10 @@ public class TextStandardActions {
 	private Action pasteAction;
 	private Action deleteAction;
 	private Action selectAllAction;
+
+	public static void attach(JTextComponent textComponent) {
+		new TextStandardActions(textComponent);
+	}
 
 	public TextStandardActions(JTextComponent textComponent) {
 		this.textComponent = textComponent;
@@ -105,26 +106,22 @@ public class TextStandardActions {
 	}
 
 	private void addKeyActions() {
-		KeyStroke undoKey = KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.CTRL_MASK);
+		KeyStroke undoKey = KeyStroke.getKeyStroke(KeyEvent.VK_Z, UiUtils.ctrlButton());
 		textComponent.getInputMap().put(undoKey, undoAction);
-		KeyStroke redoKey = KeyStroke.getKeyStroke(KeyEvent.VK_R, InputEvent.CTRL_MASK);
+		KeyStroke redoKey = KeyStroke.getKeyStroke(KeyEvent.VK_R, UiUtils.ctrlButton());
 		textComponent.getInputMap().put(redoKey, redoAction);
 	}
 
 	private void registerListeners() {
 		textComponent.addMouseListener(new MouseAdapter() {
+			@Override
 			public void mouseReleased(MouseEvent e) {
-				if (e.getModifiers() == InputEvent.BUTTON3_MASK
-						&& e.getSource() == textComponent) {
+				if (e.getButton() == 3 && e.getSource() == textComponent) {
 					process(e);
 				}
 			}
 		});
-		textComponent.getDocument().addUndoableEditListener(new UndoableEditListener() {
-			public void undoableEditHappened(UndoableEditEvent event) {
-				undoManager.addEdit(event.getEdit());
-			}
-		});
+		textComponent.getDocument().addUndoableEditListener(event -> undoManager.addEdit(event.getEdit()));
 	}
 
 	private void process(MouseEvent e) {
@@ -132,7 +129,7 @@ public class TextStandardActions {
 
 		boolean enabled = textComponent.isEnabled();
 		boolean editable = textComponent.isEditable();
-		boolean nonempty = !(textComponent.getText() == null || textComponent.getText().equals(""));
+		boolean nonempty = !(textComponent.getText() == null || textComponent.getText().isEmpty());
 		boolean marked = textComponent.getSelectedText() != null;
 		boolean pasteAvailable = Toolkit.getDefaultToolkit().getSystemClipboard()
 				.getContents(null).isDataFlavorSupported(DataFlavor.stringFlavor);

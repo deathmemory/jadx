@@ -1,109 +1,111 @@
 package jadx.core.utils;
 
-import jadx.core.dex.attributes.AFlag;
-import jadx.core.dex.attributes.IAttributeNode;
-import jadx.core.dex.attributes.nodes.JadxErrorAttr;
-import jadx.core.dex.nodes.ClassNode;
-import jadx.core.dex.nodes.MethodNode;
-import jadx.core.utils.exceptions.JadxOverflowException;
-
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import jadx.core.Consts;
+import jadx.core.dex.attributes.AType;
+import jadx.core.dex.attributes.IAttributeNode;
+import jadx.core.dex.attributes.nodes.JadxError;
+import jadx.core.dex.nodes.IDexNode;
+import jadx.core.dex.nodes.MethodNode;
+import jadx.core.utils.exceptions.JadxOverflowException;
+
 public class ErrorsCounter {
 	private static final Logger LOG = LoggerFactory.getLogger(ErrorsCounter.class);
+	private static final boolean PRINT_MTH_SIZE = Consts.DEBUG;
 
-	private final Set<Object> errorNodes = new HashSet<Object>();
+	private final Set<IAttributeNode> errorNodes = new HashSet<>();
 	private int errorsCount;
+	private final Set<IAttributeNode> warnNodes = new HashSet<>();
+	private int warnsCount;
 
-	public int getErrorCount() {
-		return errorsCount;
+	public static <N extends IDexNode & IAttributeNode> String error(N node, String warnMsg, Throwable th) {
+		return node.root().getErrorsCounter().addError(node, warnMsg, th);
 	}
 
-	private void addError(IAttributeNode node, String msg, Throwable e) {
+	public static <N extends IDexNode & IAttributeNode> void warning(N node, String warnMsg) {
+		node.root().getErrorsCounter().addWarning(node, warnMsg);
+	}
+
+	public static String formatMsg(IDexNode node, String msg) {
+		return msg + " in " + node.typeName() + ": " + node + ", file: " + node.getInputFileName();
+	}
+
+	private synchronized <N extends IDexNode & IAttributeNode> String addError(N node, String error, @Nullable Throwable e) {
 		errorNodes.add(node);
 		errorsCount++;
 
-		if (e != null) {
-			if (e.getClass() == JadxOverflowException.class) {
-				// don't print full stack trace
-				e = new JadxOverflowException(e.getMessage());
-				LOG.error("{}, message: {}", msg, e.getMessage());
-			} else {
-				LOG.error(msg, e);
-			}
-			node.addAttr(new JadxErrorAttr(e));
-		} else {
-			node.add(AFlag.INCONSISTENT_CODE);
-			LOG.error(msg);
+		String msg = formatMsg(node, error);
+		if (PRINT_MTH_SIZE && node instanceof MethodNode) {
+			String mthSize = "[" + ((MethodNode) node).getInsnsCount() + "] ";
+			msg = mthSize + msg;
+			error = mthSize + error;
 		}
-	}
-
-	public static String classError(ClassNode cls, String errorMsg, Throwable e) {
-		String msg = formatErrorMsg(cls, errorMsg);
-		cls.dex().root().getErrorsCounter().addError(cls, msg, e);
+		if (e == null) {
+			LOG.error(msg);
+		} else if (e instanceof StackOverflowError) {
+			LOG.error("{}, error: StackOverflowError", msg);
+		} else if (e instanceof JadxOverflowException) {
+			// don't print full stack trace
+			String details = e.getMessage();
+			e = new JadxOverflowException(details);
+			if (details == null || details.isEmpty()) {
+				LOG.error("{}", msg);
+			} else {
+				LOG.error("{}, details: {}", msg, details);
+			}
+		} else {
+			LOG.error(msg, e);
+		}
+		node.addAttr(AType.JADX_ERROR, new JadxError(error, e));
 		return msg;
 	}
 
-	public static String classError(ClassNode cls, String errorMsg) {
-		return classError(cls, errorMsg, null);
-	}
-
-	public static String methodError(MethodNode mth, String errorMsg, Throwable e) {
-		String msg = formatErrorMsg(mth, errorMsg);
-		mth.dex().root().getErrorsCounter().addError(mth, msg, e);
-		return msg;
-	}
-
-	public static String methodError(MethodNode mth, String errorMsg) {
-		return methodError(mth, errorMsg, null);
+	private synchronized <N extends IDexNode & IAttributeNode> void addWarning(N node, String warn) {
+		warnNodes.add(node);
+		warnsCount++;
+		LOG.warn(formatMsg(node, warn));
 	}
 
 	public void printReport() {
 		if (getErrorCount() > 0) {
 			LOG.error("{} errors occurred in following nodes:", getErrorCount());
-			List<Object> nodes = new ArrayList<Object>(errorNodes);
-			Collections.sort(nodes, new Comparator<Object>() {
-				@Override
-				public int compare(Object o1, Object o2) {
-					return String.valueOf(o1).compareTo(String.valueOf(o2));
-				}
-			});
-			for (Object node : nodes) {
+			List<String> errors = new ArrayList<>(errorNodes.size());
+			for (IAttributeNode node : errorNodes) {
 				String nodeName = node.getClass().getSimpleName().replace("Node", "");
-				LOG.error("  {}: {}", nodeName, node);
+				errors.add(nodeName + ": " + node);
+			}
+			Collections.sort(errors);
+			for (String err : errors) {
+				LOG.error("  {}", err);
 			}
 		}
-	}
-
-	public static String formatErrorMsg(ClassNode cls, String msg) {
-		return msg + " in class: " + cls;
-	}
-
-	public static String formatErrorMsg(MethodNode mth, String msg) {
-		return msg + " in method: " + mth;
-	}
-
-	private String formatException(Throwable e) {
-		if (e == null || e.getMessage() == null) {
-			return "";
-		} else {
-			return "\n error: " + e.getMessage();
+		if (getWarnsCount() > 0) {
+			LOG.warn("{} warnings in {} nodes", getWarnsCount(), warnNodes.size());
 		}
 	}
 
-	public String formatErrorMsg(ClassNode cls, String msg, Throwable e) {
-		return formatErrorMsg(cls, msg) + formatException(e);
+	public int getErrorCount() {
+		return errorsCount;
 	}
 
-	public String formatErrorMsg(MethodNode mth, String msg, Throwable e) {
-		return formatErrorMsg(mth, msg) + formatException(e);
+	public int getWarnsCount() {
+		return warnsCount;
+	}
+
+	public Set<IAttributeNode> getErrorNodes() {
+		return errorNodes;
+	}
+
+	public Set<IAttributeNode> getWarnNodes() {
+		return warnNodes;
 	}
 }

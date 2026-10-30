@@ -1,17 +1,17 @@
 package jadx.tests.integration.trycatch;
 
+import org.junit.jupiter.api.Test;
+
 import jadx.core.dex.nodes.ClassNode;
 import jadx.tests.api.IntegrationTest;
 
-import org.junit.Test;
+import static jadx.tests.api.utils.assertj.JadxAssertions.assertThat;
 
-import static jadx.tests.api.utils.JadxMatchers.containsOne;
-import static org.junit.Assert.assertThat;
-
+@SuppressWarnings("checkstyle:printstacktrace")
 public class TestTryCatch7 extends IntegrationTest {
 
 	public static class TestCls {
-		private Exception test() {
+		public Exception test() {
 			Exception e = new Exception();
 			try {
 				Thread.sleep(50);
@@ -25,15 +25,24 @@ public class TestTryCatch7 extends IntegrationTest {
 
 	@Test
 	public void test() {
+		ClassNode cls = getClassNode(TestCls.class);
+		String code = cls.getCode().toString();
+		check(code, "e", "ex");
+	}
+
+	@Test
+	public void testNoDebug() {
 		noDebugInfo();
 		ClassNode cls = getClassNode(TestCls.class);
 		String code = cls.getCode().toString();
+		check(code, "e", "e2");
+	}
 
-		String excVarName = "exception";
-		assertThat(code, containsOne("Exception " + excVarName + " = new Exception();"));
-		assertThat(code, containsOne("} catch (Exception e) {"));
-		assertThat(code, containsOne(excVarName + " = e;"));
-		assertThat(code, containsOne(excVarName + ".printStackTrace();"));
-		assertThat(code, containsOne("return " + excVarName + ";"));
+	private void check(String code, String excVarName, String catchExcVarName) {
+		assertThat(code).containsOne("Exception " + excVarName + " = new Exception();")
+				.containsOne("} catch (Exception " + catchExcVarName + ") {")
+				.containsOne(excVarName + " = " + catchExcVarName + ';')
+				.containsOne(excVarName + ".printStackTrace();")
+				.containsOne("return " + excVarName + ';');
 	}
 }

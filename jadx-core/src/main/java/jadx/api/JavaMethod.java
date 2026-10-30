@@ -1,10 +1,18 @@
 package jadx.api;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import jadx.api.metadata.ICodeAnnotation;
+import jadx.api.metadata.ICodeNodeRef;
+import jadx.core.dex.attributes.AType;
+import jadx.core.dex.attributes.nodes.MethodOverrideAttr;
 import jadx.core.dex.info.AccessInfo;
+import jadx.core.dex.info.MethodInfo;
 import jadx.core.dex.instructions.args.ArgType;
 import jadx.core.dex.nodes.MethodNode;
-
-import java.util.List;
+import jadx.core.utils.Utils;
 
 public final class JavaMethod implements JavaNode {
 	private final MethodNode mth;
@@ -40,11 +48,47 @@ public final class JavaMethod implements JavaNode {
 	}
 
 	public List<ArgType> getArguments() {
-		return mth.getMethodInfo().getArgumentsTypes();
+		List<ArgType> infoArgTypes = mth.getMethodInfo().getArgumentsTypes();
+		if (infoArgTypes.isEmpty()) {
+			return Collections.emptyList();
+		}
+		List<ArgType> arguments = mth.getArgTypes();
+		return Utils.collectionMap(arguments,
+				type -> ArgType.tryToResolveClassAlias(mth.root(), type));
 	}
 
 	public ArgType getReturnType() {
-		return mth.getReturnType();
+		ArgType retType = mth.getReturnType();
+		return ArgType.tryToResolveClassAlias(mth.root(), retType);
+	}
+
+	@Override
+	public List<JavaNode> getUseIn() {
+		return getDeclaringClass().getRootDecompiler().convertNodes(mth.getUseIn());
+	}
+
+	public List<JavaNode> getUsed() {
+		return getDeclaringClass().getRootDecompiler().convertNodes(mth.getUsed());
+	}
+
+	public List<MethodInfo> getUnresolvedUsed() {
+		return mth.getUnresolvedUsed();
+	}
+
+	public boolean callsSelf() {
+		return mth.callsSelf();
+	}
+
+	public List<JavaMethod> getOverrideRelatedMethods() {
+		MethodOverrideAttr ovrdAttr = mth.get(AType.METHOD_OVERRIDE);
+		if (ovrdAttr == null) {
+			return Collections.emptyList();
+		}
+		JadxDecompiler decompiler = getDeclaringClass().getRootDecompiler();
+		return ovrdAttr.getRelatedMthNodes()
+				.stream()
+				.map(decompiler::convertMethodNode)
+				.collect(Collectors.toList());
 	}
 
 	public boolean isConstructor() {
@@ -55,8 +99,35 @@ public final class JavaMethod implements JavaNode {
 		return mth.getMethodInfo().isClassInit();
 	}
 
-	public int getDecompiledLine() {
-		return mth.getDecompiledLine();
+	@Override
+	public int getDefPos() {
+		return mth.getDefPosition();
+	}
+
+	public String getCodeStr() {
+		return mth.getCodeStr();
+	}
+
+	@Override
+	public void removeAlias() {
+		this.mth.getMethodInfo().removeAlias();
+	}
+
+	@Override
+	public boolean isOwnCodeAnnotation(ICodeAnnotation ann) {
+		if (ann.getAnnType() == ICodeAnnotation.AnnType.METHOD) {
+			return ann.equals(mth);
+		}
+		return false;
+	}
+
+	@Override
+	public ICodeNodeRef getCodeNodeRef() {
+		return mth;
+	}
+
+	public MethodNode getMethodNode() {
+		return mth;
 	}
 
 	@Override

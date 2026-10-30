@@ -1,22 +1,34 @@
 package jadx.core.dex.instructions.args;
 
+import org.jetbrains.annotations.NotNull;
+
+import jadx.core.dex.attributes.AFlag;
+import jadx.core.dex.instructions.ConstStringNode;
+import jadx.core.dex.instructions.InsnType;
 import jadx.core.dex.nodes.InsnNode;
 import jadx.core.utils.exceptions.JadxRuntimeException;
-
-import org.jetbrains.annotations.NotNull;
 
 public final class InsnWrapArg extends InsnArg {
 
 	private final InsnNode wrappedInsn;
 
-	public InsnWrapArg(@NotNull InsnNode insn) {
+	/**
+	 * Use {@link InsnArg#wrapInsnIntoArg(InsnNode)} instead this constructor
+	 */
+	InsnWrapArg(@NotNull InsnNode insn) {
 		RegisterArg result = insn.getResult();
-		this.type = result != null ? result.getType() : ArgType.VOID;
+		this.type = result != null ? result.getType() : ArgType.UNKNOWN;
 		this.wrappedInsn = insn;
 	}
 
 	public InsnNode getWrapInsn() {
 		return wrappedInsn;
+	}
+
+	public InsnNode unWrapWithCopy() {
+		InsnNode copy = wrappedInsn.copyWithoutResult();
+		copy.remove(AFlag.WRAPPED);
+		return copy;
 	}
 
 	@Override
@@ -25,6 +37,20 @@ public final class InsnWrapArg extends InsnArg {
 			throw new JadxRuntimeException("Can't wrap instruction info itself: " + parentInsn);
 		}
 		this.parentInsn = parentInsn;
+	}
+
+	@Override
+	public InsnArg duplicate() {
+		InsnNode wrapInsn = wrappedInsn;
+		InsnNode wrapInsnCopy = wrapInsn.copyWithoutResult();
+		if (wrapInsn.getResult() != null && wrapInsn.contains(AFlag.FORCE_ASSIGN_INLINE)) {
+			// keep same SSA var in result arg, this will break previous version, mark it for removal
+			wrapInsnCopy.setResult(wrapInsn.getResult().duplicate());
+			wrapInsn.add(AFlag.DONT_GENERATE);
+		}
+		InsnWrapArg copy = new InsnWrapArg(wrapInsnCopy);
+		copy.setType(type);
+		return copyCommonParams(copy);
 	}
 
 	@Override
@@ -61,7 +87,18 @@ public final class InsnWrapArg extends InsnArg {
 	}
 
 	@Override
+	public String toShortString() {
+		if (wrappedInsn.getType() == InsnType.CONST_STR) {
+			return "(\"" + ((ConstStringNode) wrappedInsn).getString() + "\")";
+		}
+		return "(wrap " + type + ":" + wrappedInsn.getType() + ')';
+	}
+
+	@Override
 	public String toString() {
-		return "(wrap: " + type + "\n  " + wrappedInsn + ")";
+		if (wrappedInsn.getType() == InsnType.CONST_STR) {
+			return "(\"" + ((ConstStringNode) wrappedInsn).getString() + "\")";
+		}
+		return "(wrap " + type + ":" + wrappedInsn + ')';
 	}
 }

@@ -1,16 +1,11 @@
 package jadx.tests.integration.inner;
 
-import jadx.core.dex.nodes.ClassNode;
-import jadx.tests.api.IntegrationTest;
-
 import java.util.Random;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static jadx.tests.api.utils.JadxMatchers.containsOne;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.not;
-import static org.junit.Assert.assertThat;
+import jadx.tests.api.IntegrationTest;
+import jadx.tests.api.utils.assertj.JadxAssertions;
 
 public class TestAnonymousClass11 extends IntegrationTest {
 
@@ -36,7 +31,6 @@ public class TestAnonymousClass11 extends IntegrationTest {
 			}
 
 			public abstract void m();
-
 		}
 
 		private void func(A a) {
@@ -54,11 +48,10 @@ public class TestAnonymousClass11 extends IntegrationTest {
 
 	@Test
 	public void test() {
-		ClassNode cls = getClassNode(TestCls.class);
-		String code = cls.getCode().toString();
-
-		assertThat(code, containsOne("System.out.println(\"a\" + a);"));
-		assertThat(code, containsOne("print(a);"));
-		assertThat(code, not(containsString("synthetic")));
+		JadxAssertions.assertThat(getClassNode(TestCls.class))
+				.code()
+				.containsOne("System.out.println(\"a\" + a);")
+				.containsOne("print(a);")
+				.doesNotContain("synthetic");
 	}
 }

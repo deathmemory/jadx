@@ -1,39 +1,36 @@
 package jadx.core.dex.attributes.nodes;
 
-import jadx.core.dex.attributes.AType;
-import jadx.core.dex.attributes.IAttribute;
-import jadx.core.dex.info.FieldInfo;
-import jadx.core.dex.instructions.mods.ConstructorInsn;
-import jadx.core.dex.nodes.ClassNode;
-import jadx.core.dex.nodes.MethodNode;
-
-import java.util.ArrayList;
 import java.util.List;
 
-public class EnumClassAttr implements IAttribute {
+import org.jetbrains.annotations.Nullable;
+
+import jadx.api.plugins.input.data.attributes.IJadxAttribute;
+import jadx.core.dex.attributes.AType;
+import jadx.core.dex.instructions.mods.ConstructorInsn;
+import jadx.core.dex.nodes.ClassNode;
+import jadx.core.dex.nodes.FieldNode;
+import jadx.core.dex.nodes.MethodNode;
+
+public class EnumClassAttr implements IJadxAttribute {
 
 	public static class EnumField {
-		private final FieldInfo field;
+		private final FieldNode field;
 		private final ConstructorInsn constrInsn;
-		private final int startArg;
+		private final @Nullable String nameStr;
 		private ClassNode cls;
 
-		public EnumField(FieldInfo field, ConstructorInsn co, int startArg) {
+		public EnumField(FieldNode field, ConstructorInsn co, @Nullable String nameStr) {
 			this.field = field;
 			this.constrInsn = co;
-			this.startArg = startArg;
+			this.nameStr = nameStr;
 		}
 
-		public FieldInfo getField() {
+		public FieldNode getField() {
 			return field;
 		}
 
 		public ConstructorInsn getConstrInsn() {
 			return constrInsn;
-		}
-
-		public int getStartArg() {
-			return startArg;
 		}
 
 		public ClassNode getCls() {
@@ -42,6 +39,10 @@ public class EnumClassAttr implements IAttribute {
 
 		public void setCls(ClassNode cls) {
 			this.cls = cls;
+		}
+
+		public @Nullable String getNameStr() {
+			return nameStr;
 		}
 
 		@Override
@@ -53,8 +54,8 @@ public class EnumClassAttr implements IAttribute {
 	private final List<EnumField> fields;
 	private MethodNode staticMethod;
 
-	public EnumClassAttr(int fieldsCount) {
-		this.fields = new ArrayList<EnumField>(fieldsCount);
+	public EnumClassAttr(List<EnumField> fields) {
+		this.fields = fields;
 	}
 
 	public List<EnumField> getFields() {
@@ -70,7 +71,7 @@ public class EnumClassAttr implements IAttribute {
 	}
 
 	@Override
-	public AType<EnumClassAttr> getType() {
+	public AType<EnumClassAttr> getAttrType() {
 		return AType.ENUM_CLASS;
 	}
 
@@ -78,5 +79,4 @@ public class EnumClassAttr implements IAttribute {
 	public String toString() {
 		return "Enum fields: " + fields;
 	}
-
 }

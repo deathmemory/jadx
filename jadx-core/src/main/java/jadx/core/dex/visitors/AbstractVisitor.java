@@ -5,19 +5,31 @@ import jadx.core.dex.nodes.MethodNode;
 import jadx.core.dex.nodes.RootNode;
 import jadx.core.utils.exceptions.JadxException;
 
-public class AbstractVisitor implements IDexTreeVisitor {
+public abstract class AbstractVisitor implements IDexTreeVisitor {
 
 	@Override
 	public void init(RootNode root) throws JadxException {
+		// no op implementation
 	}
 
 	@Override
 	public boolean visit(ClassNode cls) throws JadxException {
+		// no op implementation
 		return true;
 	}
 
 	@Override
 	public void visit(MethodNode mth) throws JadxException {
+		// no op implementation
 	}
 
+	@Override
+	public String getName() {
+		return this.getClass().getSimpleName();
+	}
+
+	@Override
+	public String toString() {
+		return getName();
+	}
 }

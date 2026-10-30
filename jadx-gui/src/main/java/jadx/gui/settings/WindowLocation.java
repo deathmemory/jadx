@@ -1,50 +1,57 @@
 package jadx.gui.settings;
 
+import java.awt.Rectangle;
+import java.util.Objects;
+
+import org.jetbrains.annotations.Nullable;
+
+@SuppressWarnings("unused")
 public class WindowLocation {
+	private String windowId;
+	private @Nullable Rectangle bounds;
 
-	private final String windowId;
+	// Don't remove. Used in JSON serialization
+	public WindowLocation() {
+	}
 
-	private final int x;
-	private final int y;
-	private final int width;
-	private final int height;
-
-	public WindowLocation(String windowId, int x, int y, int width, int height) {
+	public WindowLocation(String windowId, @Nullable Rectangle bounds) {
 		this.windowId = windowId;
-		this.x = x;
-		this.y = y;
-		this.width = width;
-		this.height = height;
+		this.bounds = bounds;
 	}
 
 	public String getWindowId() {
 		return windowId;
 	}
 
-	public int getX() {
-		return x;
+	public void setWindowId(String windowId) {
+		this.windowId = windowId;
 	}
 
-	public int getY() {
-		return y;
+	public @Nullable Rectangle getBounds() {
+		return bounds;
 	}
 
-	public int getWidth() {
-		return width;
+	public void setBounds(@Nullable Rectangle bounds) {
+		this.bounds = bounds;
 	}
 
-	public int getHeight() {
-		return height;
+	@Override
+	public int hashCode() {
+		return Objects.hashCode(windowId);
+	}
+
+	@Override
+	public final boolean equals(Object o) {
+		if (o instanceof WindowLocation) {
+			WindowLocation that = (WindowLocation) o;
+			return Objects.equals(windowId, that.windowId)
+					&& Objects.equals(bounds, that.bounds);
+		}
+		return false;
 	}
 
 	@Override
 	public String toString() {
-		return "WindowLocation{" +
-				"id='" + windowId + '\'' +
-				", x=" + x +
-				", y=" + y +
-				", width=" + width +
-				", height=" + height +
-				'}';
+		return "WindowLocation{id=" + windowId + ", bounds=" + bounds + '}';
 	}
 }

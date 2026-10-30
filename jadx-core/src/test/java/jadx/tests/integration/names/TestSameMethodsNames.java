@@ -1,12 +1,9 @@
 package jadx.tests.integration.names;
 
-import jadx.core.dex.nodes.ClassNode;
+import org.junit.jupiter.api.Test;
+
 import jadx.tests.api.IntegrationTest;
-
-import org.junit.Test;
-
-import static jadx.tests.api.utils.JadxMatchers.containsOne;
-import static org.junit.Assert.assertThat;
+import jadx.tests.api.utils.assertj.JadxAssertions;
 
 public class TestSameMethodsNames extends IntegrationTest {
 
@@ -21,6 +18,7 @@ public class TestSameMethodsNames extends IntegrationTest {
 				System.out.println("constructor");
 			}
 
+			@SuppressWarnings({ "MethodName", "MethodNameSameAsClassName" })
 			void Bug() {
 				System.out.println("Bug");
 			}
@@ -29,9 +27,8 @@ public class TestSameMethodsNames extends IntegrationTest {
 
 	@Test
 	public void test() {
-		ClassNode cls = getClassNode(TestCls.class);
-		String code = cls.getCode().toString();
-
-		assertThat(code, containsOne("new Bug().Bug();"));
+		JadxAssertions.assertThat(getClassNode(TestCls.class))
+				.code()
+				.containsOne("new Bug().Bug();");
 	}
 }

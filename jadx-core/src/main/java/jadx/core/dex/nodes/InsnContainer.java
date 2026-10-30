@@ -1,12 +1,23 @@
 package jadx.core.dex.nodes;
 
-import jadx.core.dex.attributes.AttrNode;
-
+import java.util.ArrayList;
 import java.util.List;
 
-public class InsnContainer extends AttrNode implements IBlock {
+import jadx.core.dex.attributes.AttrNode;
+
+/**
+ * Lightweight replacement for BlockNode in regions.
+ * Use with caution! Some passes still expect BlockNode in method blocks list (mth.getBlockNodes())
+ */
+public final class InsnContainer extends AttrNode implements IBlock {
 
 	private final List<InsnNode> insns;
+
+	public InsnContainer(InsnNode insn) {
+		List<InsnNode> list = new ArrayList<>(1);
+		list.add(insn);
+		this.insns = list;
+	}
 
 	public InsnContainer(List<InsnNode> insns) {
 		this.insns = insns;
@@ -19,11 +30,11 @@ public class InsnContainer extends AttrNode implements IBlock {
 
 	@Override
 	public String baseString() {
-		return Integer.toString(insns.size());
+		return "IC";
 	}
 
 	@Override
 	public String toString() {
-		return "InsnContainer:" + insns.size();
+		return "InsnContainer";
 	}
 }

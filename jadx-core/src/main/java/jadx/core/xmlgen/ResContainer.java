@@ -1,52 +1,47 @@
 package jadx.core.xmlgen;
 
-import jadx.core.codegen.CodeWriter;
-import jadx.core.utils.exceptions.JadxRuntimeException;
-
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+
+import jadx.api.ICodeInfo;
+import jadx.api.ResourceFile;
 
 public class ResContainer implements Comparable<ResContainer> {
 
+	public enum DataType {
+		TEXT, DECODED_DATA, RES_LINK, RES_TABLE
+	}
+
+	private final DataType dataType;
 	private final String name;
+	private final Object data;
 	private final List<ResContainer> subFiles;
 
-	@Nullable
-	private CodeWriter content;
-	@Nullable
-	private BufferedImage image;
-
-	private ResContainer(String name, List<ResContainer> subFiles) {
-		this.name = name;
-		this.subFiles = subFiles;
+	public static ResContainer textResource(String name, ICodeInfo content) {
+		return new ResContainer(name, Collections.emptyList(), content, DataType.TEXT);
 	}
 
-	public static ResContainer singleFile(String name, CodeWriter content) {
-		ResContainer resContainer = new ResContainer(name, Collections.<ResContainer>emptyList());
-		resContainer.content = content;
-		return resContainer;
+	public static ResContainer decodedData(String name, byte[] data) {
+		return new ResContainer(name, Collections.emptyList(), data, DataType.DECODED_DATA);
 	}
 
-	public static ResContainer singleImageFile(String name, InputStream content) {
-		ResContainer resContainer = new ResContainer(name, Collections.<ResContainer>emptyList());
-		try {
-			resContainer.image = ImageIO.read(content);
-		} catch (Exception e) {
-			throw new JadxRuntimeException("Image load error", e);
-		}
-		return resContainer;
+	public static ResContainer resourceFileLink(ResourceFile resFile) {
+		return new ResContainer(resFile.getDeobfName(), Collections.emptyList(), resFile, DataType.RES_LINK);
 	}
 
-	public static ResContainer multiFile(String name) {
-		return new ResContainer(name, new ArrayList<ResContainer>());
+	public static ResContainer resourceTable(String name, List<ResContainer> subFiles, ICodeInfo rootContent) {
+		return new ResContainer(name, subFiles, rootContent, DataType.RES_TABLE);
+	}
+
+	private ResContainer(String name, List<ResContainer> subFiles, Object data, DataType dataType) {
+		this.name = Objects.requireNonNull(name);
+		this.subFiles = Objects.requireNonNull(subFiles);
+		this.data = Objects.requireNonNull(data);
+		this.dataType = Objects.requireNonNull(dataType);
 	}
 
 	public String getName() {
@@ -54,25 +49,27 @@ public class ResContainer implements Comparable<ResContainer> {
 	}
 
 	public String getFileName() {
-		return name.replace("/", File.separator);
-	}
-
-	@Nullable
-	public CodeWriter getContent() {
-		return content;
-	}
-
-	public void setContent(@Nullable CodeWriter content) {
-		this.content = content;
-	}
-
-	@Nullable
-	public BufferedImage getImage() {
-		return image;
+		return name.replace('/', File.separatorChar);
 	}
 
 	public List<ResContainer> getSubFiles() {
 		return subFiles;
+	}
+
+	public DataType getDataType() {
+		return dataType;
+	}
+
+	public ICodeInfo getText() {
+		return (ICodeInfo) data;
+	}
+
+	public byte[] getDecodedData() {
+		return (byte[]) data;
+	}
+
+	public ResourceFile getResLink() {
+		return (ResourceFile) data;
 	}
 
 	@Override
@@ -81,7 +78,24 @@ public class ResContainer implements Comparable<ResContainer> {
 	}
 
 	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (!(o instanceof ResContainer)) {
+			return false;
+		}
+		ResContainer that = (ResContainer) o;
+		return name.equals(that.name);
+	}
+
+	@Override
+	public int hashCode() {
+		return name.hashCode();
+	}
+
+	@Override
 	public String toString() {
-		return "Res{" + name + ", subFiles=" + subFiles + "}";
+		return "Res{" + name + ", type=" + dataType + ", subFiles=" + subFiles + '}';
 	}
 }

@@ -1,5 +1,7 @@
 package jadx.tests.functional;
 
+import org.junit.jupiter.api.Test;
+
 import jadx.core.dex.instructions.IfNode;
 import jadx.core.dex.instructions.IfOp;
 import jadx.core.dex.instructions.args.ArgType;
@@ -8,13 +10,15 @@ import jadx.core.dex.instructions.args.LiteralArg;
 import jadx.core.dex.regions.conditions.Compare;
 import jadx.core.dex.regions.conditions.IfCondition;
 
-import org.junit.Test;
-
 import static jadx.core.dex.regions.conditions.IfCondition.Mode;
+import static jadx.core.dex.regions.conditions.IfCondition.Mode.AND;
+import static jadx.core.dex.regions.conditions.IfCondition.Mode.COMPARE;
+import static jadx.core.dex.regions.conditions.IfCondition.Mode.NOT;
+import static jadx.core.dex.regions.conditions.IfCondition.Mode.OR;
 import static jadx.core.dex.regions.conditions.IfCondition.merge;
 import static jadx.core.dex.regions.conditions.IfCondition.not;
 import static jadx.core.dex.regions.conditions.IfCondition.simplify;
-import static org.junit.Assert.assertEquals;
+import static jadx.tests.api.utils.assertj.JadxAssertions.assertThat;
 
 public class TestIfCondition {
 
@@ -23,11 +27,11 @@ public class TestIfCondition {
 	}
 
 	private static IfCondition makeSimpleCondition() {
-		return makeCondition(IfOp.EQ, mockArg(), LiteralArg.TRUE);
+		return makeCondition(IfOp.EQ, mockArg(), LiteralArg.litTrue());
 	}
 
 	private static IfCondition makeNegCondition() {
-		return makeCondition(IfOp.NE, mockArg(), LiteralArg.TRUE);
+		return makeCondition(IfOp.NE, mockArg(), LiteralArg.litTrue());
 	}
 
 	private static InsnArg mockArg() {
@@ -38,13 +42,13 @@ public class TestIfCondition {
 	public void testNormalize() {
 		// 'a != false' => 'a == true'
 		InsnArg a = mockArg();
-		IfCondition c = makeCondition(IfOp.NE, a, LiteralArg.FALSE);
+		IfCondition c = makeCondition(IfOp.NE, a, LiteralArg.litFalse());
 		IfCondition simp = simplify(c);
 
-		assertEquals(simp.getMode(), Mode.COMPARE);
+		assertThat(simp.getMode()).isEqualTo(COMPARE);
 		Compare compare = simp.getCompare();
-		assertEquals(compare.getA(), a);
-		assertEquals(compare.getB(), LiteralArg.TRUE);
+		assertThat(compare.getA()).isEqualTo(a);
+		assertThat(compare.getB()).isEqualTo(LiteralArg.litTrue());
 	}
 
 	@Test
@@ -53,23 +57,23 @@ public class TestIfCondition {
 		IfCondition b = makeSimpleCondition();
 		IfCondition c = merge(Mode.OR, a, b);
 
-		assertEquals(c.getMode(), Mode.OR);
-		assertEquals(c.first(), a);
-		assertEquals(c.second(), b);
+		assertThat(c.getMode()).isEqualTo(OR);
+		assertThat(c.first()).isEqualTo(a);
+		assertThat(c.second()).isEqualTo(b);
 	}
 
 	@Test
 	public void testSimplifyNot() {
 		// !(!a) => a
 		IfCondition a = not(not(makeSimpleCondition()));
-		assertEquals(simplify(a), a);
+		assertThat(simplify(a)).isEqualTo(a);
 	}
 
 	@Test
 	public void testSimplifyNot2() {
 		// !(!a) => a
 		IfCondition a = not(makeNegCondition());
-		assertEquals(simplify(a), a);
+		assertThat(simplify(a)).isEqualTo(a);
 	}
 
 	@Test
@@ -80,9 +84,9 @@ public class TestIfCondition {
 		IfCondition c = not(merge(Mode.OR, not(a), not(b)));
 		IfCondition simp = simplify(c);
 
-		assertEquals(simp.getMode(), Mode.AND);
-		assertEquals(simp.first(), a);
-		assertEquals(simp.second(), b);
+		assertThat(simp.getMode()).isEqualTo(AND);
+		assertThat(simp.first()).isEqualTo(a);
+		assertThat(simp.second()).isEqualTo(b);
 	}
 
 	@Test
@@ -94,12 +98,12 @@ public class TestIfCondition {
 		IfCondition cond = merge(Mode.AND, merge(Mode.OR, not(a), not(b)), not(c));
 		IfCondition simp = simplify(cond);
 
-		assertEquals(simp.getMode(), Mode.NOT);
+		assertThat(simp.getMode()).isEqualTo(NOT);
 		IfCondition f = simp.first();
-		assertEquals(f.getMode(), Mode.OR);
-		assertEquals(f.first().getMode(), Mode.AND);
-		assertEquals(f.first().first(), a);
-		assertEquals(f.first().second(), b);
-		assertEquals(f.second(), c);
+		assertThat(f.getMode()).isEqualTo(OR);
+		assertThat(f.first().getMode()).isEqualTo(AND);
+		assertThat(f.first().first()).isEqualTo(a);
+		assertThat(f.first().second()).isEqualTo(b);
+		assertThat(f.second()).isEqualTo(c);
 	}
 }

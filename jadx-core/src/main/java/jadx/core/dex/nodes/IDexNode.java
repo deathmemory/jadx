@@ -1,9 +1,12 @@
 package jadx.core.dex.nodes;
 
-public interface IDexNode {
+import jadx.api.data.IRenameNode;
 
-	DexNode dex();
+public interface IDexNode extends IRenameNode {
+
+	String typeName();
 
 	RootNode root();
-}
 
+	String getInputFileName();
+}

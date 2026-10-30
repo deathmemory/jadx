@@ -1,15 +1,12 @@
 package jadx.tests.integration.loops;
 
-import jadx.core.dex.nodes.ClassNode;
-import jadx.tests.api.IntegrationTest;
-
 import java.util.HashMap;
 import java.util.Map;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static jadx.tests.api.utils.JadxMatchers.containsOne;
-import static org.junit.Assert.assertThat;
+import jadx.tests.api.IntegrationTest;
+import jadx.tests.api.utils.assertj.JadxAssertions;
 
 public class TestTryCatchInLoop2 extends IntegrationTest {
 
@@ -19,7 +16,7 @@ public class TestTryCatchInLoop2 extends IntegrationTest {
 			String name;
 		}
 
-		private final Map<Integer, MyItem> mCache = new HashMap<Integer, MyItem>();
+		private final Map<Integer, MyItem> mCache = new HashMap<>();
 
 		void test(MyItem[] items) {
 			synchronized (this.mCache) {
@@ -37,10 +34,9 @@ public class TestTryCatchInLoop2 extends IntegrationTest {
 
 	@Test
 	public void test() {
-		ClassNode cls = getClassNode(TestCls.class);
-		String code = cls.getCode().toString();
-
-		assertThat(code, containsOne("synchronized (this.mCache) {"));
-		assertThat(code, containsOne("for (int i = 0; i < items.length; i++) {"));
+		JadxAssertions.assertThat(getClassNode(TestCls.class))
+				.code()
+				.containsOne("synchronized (this.mCache) {")
+				.containsOne("for (int i = 0; i < items.length; i++) {");
 	}
 }
